@@ -175,6 +175,10 @@ enum class AnnotationLayer { Redaction, Default };
  */
 [[nodiscard]] bool probeFocusedMonitor(MonitorInfo &monitor, QString &error,
                                        int timeoutMs = 10000);
+/** Like probeFocusedMonitor, for the named monitor; an empty name means the
+ *  focused one. */
+[[nodiscard]] bool probeMonitor(const QString &name, MonitorInfo &monitor,
+                                QString &error, int timeoutMs = 10000);
 /**
  * Captures the focused monitor's pixels onto the given monitor, and its window
  * list when `includeWindows` is set. Window discovery runs alongside the screen

@@ -132,6 +132,10 @@ void configureCaptureCommandLine(QCommandLineParser &parser, bool beforeQt) {
                                      QStringLiteral("name"));
   handoffMonitor.setFlags(QCommandLineOption::HiddenFromHelp);
   parser.addOption(handoffMonitor);
+  QCommandLineOption captureMonitor(QStringLiteral("capture-monitor"),
+                                    QString(), QStringLiteral("name"));
+  captureMonitor.setFlags(QCommandLineOption::HiddenFromHelp);
+  parser.addOption(captureMonitor);
   QCommandLineOption handoffToken(QStringLiteral("handoff-token"), QString(),
                                   QStringLiteral("token"));
   handoffToken.setFlags(QCommandLineOption::HiddenFromHelp);

@@ -445,7 +445,7 @@ QString screenshotTargetPath(QString &error, const QString &appSlug) {
 }
 
 bool parseMonitor(const QByteArray &json, MonitorInfo &monitor,
-                  QString &error) {
+                  QString &error, const QString &name = {}) {
   QJsonParseError parseError;
   const QJsonDocument document = QJsonDocument::fromJson(json, &parseError);
   if (parseError.error != QJsonParseError::NoError || !document.isArray()) {
@@ -456,7 +456,8 @@ bool parseMonitor(const QByteArray &json, MonitorInfo &monitor,
 
   for (const QJsonValue value : document.array()) {
     const QJsonObject object = value.toObject();
-    if (!object.value(QStringLiteral("focused")).toBool())
+    if (name.isEmpty() ? !object.value(QStringLiteral("focused")).toBool()
+                       : object.value(QStringLiteral("name")).toString() != name)
       continue;
 
     const qreal scale = object.value(QStringLiteral("scale")).toDouble(1.0);
@@ -481,7 +482,9 @@ bool parseMonitor(const QByteArray &json, MonitorInfo &monitor,
     return !monitor.name.isEmpty() && logicalWidth > 0 && logicalHeight > 0;
   }
 
-  error = QStringLiteral("Hyprland did not report a focused monitor");
+  error = name.isEmpty()
+              ? QStringLiteral("Hyprland did not report a focused monitor")
+              : QStringLiteral("Hyprland did not report monitor %1").arg(name);
   return false;
 }
 
@@ -1354,13 +1357,18 @@ void paintCaptureImageShadow(QPainter &painter, const QRectF &imageRect,
 }
 
 bool probeFocusedMonitor(MonitorInfo &monitor, QString &error, int timeoutMs) {
+  return probeMonitor({}, monitor, error, timeoutMs);
+}
+
+bool probeMonitor(const QString &name, MonitorInfo &monitor, QString &error,
+                  int timeoutMs) {
   StartupTimingScope timing("hyprctl monitors + parse");
   const ProcessResult monitors =
       runProcess(QStringLiteral("hyprctl"),
                  {QStringLiteral("monitors"), QStringLiteral("-j")}, {},
                  timeoutMs);
   if (!monitors.finished || monitors.exitCode != 0 ||
-      !parseMonitor(monitors.output, monitor, error)) {
+      !parseMonitor(monitors.output, monitor, error, name)) {
     if (error.isEmpty())
       error = QString::fromUtf8(monitors.error).trimmed();
     return false;

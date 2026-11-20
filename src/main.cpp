@@ -5,6 +5,7 @@
 #include "cli-path.hpp"
 #include "editor.hpp"
 #include "instance-lock.hpp"
+#include "monitor-hop.hpp"
 #include "output-config.hpp"
 #include "overlay-chrome.hpp"
 #include "overlay-dismissal.hpp"
@@ -384,7 +385,8 @@ int main(int argc, char **argv) {
                              .arg(inputName)
                              .arg(image.width())
                              .arg(image.height());
-  } else if (!probeFocusedMonitor(capture.monitor, error)) {
+  } else if (!probeMonitor(parser.value(QStringLiteral("capture-monitor")),
+                           capture.monitor, error)) {
     qCritical().noquote() << error;
     sendCaptureNotification(QStringLiteral("Screenshot failed: %1").arg(error));
     return 1;
@@ -580,10 +582,32 @@ int main(int argc, char **argv) {
       LayerShellQt::Window::KeyboardInteractivityExclusive);
   layerWindow->setActivateOnShow(true);
   editor.setLayerWindow(layerWindow);
-  OverlayDismissal overlayDismissal(editor);
+  auto overlayDismissal = std::make_unique<OverlayDismissal>(editor);
   startupTimingMark("layer surface configured");
   editor.show();
   editor.setFocus(Qt::ActiveWindowFocusReason);
+
+  // The overlay lives on one monitor, but the pointer may be headed for
+  // another: watch the others and reopen the capture where it arrives.
+  std::unique_ptr<MonitorHop> monitorHop;
+  if (!editingImage && QGuiApplication::screens().size() > 1) {
+    monitorHop = std::make_unique<MonitorHop>(
+        editor, targetScreen,
+        [&editor, &overlayDismissal, &instanceLock](const QString &monitor) {
+          const QStringList args = monitorHopArguments(
+              QCoreApplication::arguments().mid(1),
+              editor.currentCaptureMode(), monitor);
+          editor.hide();
+          // Release everything the next overlay claims before it starts.
+          overlayDismissal.reset();
+          finishSavingStateMarkers();
+          instanceLock.unlock();
+          if (!QProcess::startDetached(QCoreApplication::applicationFilePath(),
+                                       args))
+            qCritical() << "Could not reopen the capture on" << monitor;
+          QCoreApplication::quit();
+        });
+  }
   startupTimingMark("show requested; entering event loop");
 
   const int result = application.exec();

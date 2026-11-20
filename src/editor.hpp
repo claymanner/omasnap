@@ -453,6 +453,16 @@ public:
   [[nodiscard]] QRectF textSizePanelRectForTest() const {
     return textSizePanelRect();
   }
+  /// Whether the overlay can be handed to another monitor without losing
+  /// anything: still choosing what to capture, with no drag under way.
+  [[nodiscard]] bool choosingCapture() const { return phase_ == Phase::Select; }
+  [[nodiscard]] bool canMoveToMonitor() const {
+    return phase_ == Phase::Select && !dragging_ &&
+           interaction_ == Interaction::None &&
+           captureMode_ != CaptureMode::Scroll &&
+           captureMode_ != CaptureMode::File;
+  }
+  [[nodiscard]] CaptureMode currentCaptureMode() const { return captureMode_; }
   /// Whether the overlay is still in the select phase. Test accessor.
   [[nodiscard]] bool selectingForTest() const { return phase_ == Phase::Select; }
   /// Whether a confirmed quick capture is being exported without showing Edit.
